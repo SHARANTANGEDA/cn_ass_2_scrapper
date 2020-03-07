@@ -1,3 +1,4 @@
-.idea
-./.idea
 cn_ass_2_scrapper.iml
+/src/com/sharan/*.class
+/out
+/.idea
