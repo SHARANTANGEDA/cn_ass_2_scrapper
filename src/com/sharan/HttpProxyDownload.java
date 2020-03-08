@@ -17,8 +17,6 @@ import javax.net.ssl.SSLSocketFactory;
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.security.Security;
 import java.util.Arrays;
 import java.util.Base64;
@@ -153,9 +151,8 @@ class SocketHTTPClient {
             e.printStackTrace();
         }
     }
-    public void closeConnection(SSLSocket s) {
+    public void closeConnection() {
         try {
-            s.close();
             socket.close();
 
         } catch (IOException e) {
@@ -186,9 +183,10 @@ class SocketHTTPClient {
             StringBuilder htmlRes = new StringBuilder();
             try {
                 while (!(inputLine = in.readLine()).equals(null)) {
-                    System.out.println(inputLine);
-                    if(inputLine.startsWith("<!doctype html>")) {
+//                    System.out.println(inputLine);
+                    if(inputLine.startsWith("<!doctype html>")  || inputLine.startsWith("<!DOCTYPE html>")) {
                         htmlRes.setLength(0);
+//                        System.out.println("THIS:"+inputLine);
                     }
                     htmlRes.append(inputLine);
                     if(inputLine.endsWith("</html>")) {
@@ -203,6 +201,7 @@ class SocketHTTPClient {
             fileWriter.append(htmlRes);
             fileWriter.flush();
             fileWriter.close();
+            System.out.println("######################## HTML OUTPUT IS FINISHED #########################");
             return htmlRes.toString();
         }catch (IOException e) {
             e.printStackTrace();
@@ -213,7 +212,14 @@ class SocketHTTPClient {
     public void parseImage(String htmlCode) {
         Document doc = Jsoup.parse(htmlCode);
         Element logo = doc.getElementById("hplogo");
-        String path = logo.attr("src");
+//        String path = logo.attr("src");
+        String path;
+        try {
+            path = logo.attr("src");
+        }catch (NullPointerException nu) {
+            System.out.println("################ LOGO COULD NOT BE EXTRACTED AS SITE IS NOT GOOGLE ##################");
+            return;
+        }
         System.out.println(path);
         byte[] bytes;
         try {
@@ -231,42 +237,31 @@ class SocketHTTPClient {
             }
             socket.getOutputStream().write(bytes);
             socket.getOutputStream().flush();
-            String inputLine;
-            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
-            StringBuilder byteStream = new StringBuilder();
-            boolean flag=false;
-            try {
-                while (!(inputLine = in.readLine()).equals(null)){
-                    System.out.println(inputLine);
-                    byteStream.append(inputLine).append("\n");
-                    if(inputLine.equals("Connection: close")) {
-                        byteStream.setLength(0);
-                        flag=true;
+            DataInputStream in2 = new DataInputStream(socket.getInputStream());
+            OutputStream dos = new FileOutputStream(logoFileName);
+            int count,offset;
+            byte[] buffer = new byte[2048];
+            boolean fl = false;
+            while((count = in2.read(buffer)) != -1){
+                offset = 0;
+                if(!fl){
+                    String str = new String(buffer, 0, count);
+                    int index = str.indexOf("e\r\n\r\n");
+                    if(index!=-1){
+                        count = count - index - 5;
+                        offset = index+5;
+                        fl = true;
                     }
+                    else count = 0;
                 }
-                System.out.println("out");
-
-            }catch (NullPointerException nu) {
-                System.out.println();
+                dos.write(buffer, offset, count);
+                dos.flush();
             }
-            BufferedWriter fileWriter = new BufferedWriter(new FileWriter(logoFileName));
-            fileWriter.append(byteStream);
-            fileWriter.flush();
-            fileWriter.close();
+            dos.close();
+            System.out.println("######################## LOGO OUTPUT IS FINISHED #########################");
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
-
-    public void testConnection() {
-
-        try {
-            URL url = new URL(this.hostName);
-            socket.connect(new InetSocketAddress(url.getHost(), url.getPort()));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
     }
 }
 
@@ -288,6 +283,7 @@ public class HttpProxyDownload {
         socketHTTPClient.initializeConnection();
         String htmlRes = socketHTTPClient.getHtml();
         socketHTTPClient.parseImage(htmlRes);
+        socketHTTPClient.closeConnection();
     }
 
 }
