@@ -6,10 +6,6 @@
 /* EndGroupMembers */
 package com.sharan;
 
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-
 import javax.net.ssl.HandshakeCompletedEvent;
 import javax.net.ssl.HandshakeCompletedListener;
 import javax.net.ssl.SSLSocket;
@@ -22,6 +18,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.Security;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 class SocketHTTP {
     public Socket socket;
@@ -212,17 +210,26 @@ class SocketHTTP {
     }
 
     public void parseImage(String htmlCode) {
-        Document doc = Jsoup.parse(htmlCode);
-        Element logo = doc.getElementById("hplogo");
-        String path;
+        Pattern pattern = Pattern.compile("<img .*? " +
+                "src=\".*.png\" " +
+                ".* id=\"hplogo\">");
+        Matcher matcher = pattern.matcher(htmlCode);
+        String path="";
         try {
-            path = logo.attr("src");
+            if (matcher.find()) {
+                path = matcher.group(0);
+                System.out.println(path);
+            }
+            int start_ind = path.indexOf("src=", 0);
+            int end_ind = path.indexOf("\"", start_ind+5);
+            System.out.println(start_ind+": :"+ end_ind);
+            path = path.substring(start_ind+5, end_ind);
+            System.out.println(path);
         }catch (NullPointerException nu) {
             System.out.println("################ LOGO COULD NOT BE EXTRACTED AS SITE IS NOT GOOGLE ##################");
             return;
         }
 
-        System.out.println(path);
         byte[] bytes;
         try {
             StringBuilder msg = new StringBuilder();
@@ -239,18 +246,7 @@ class SocketHTTP {
             }
             socket.getOutputStream().write(bytes);
             socket.getOutputStream().flush();
-//
-//            InputStream inputStream = socket.getInputStream();
-//            OutputStream os = new FileOutputStream(new File("./imag.png"));
-//
-//            byte[] buffer = new byte[8192];
-//            int bytesRead;
-//            ByteArrayOutputStream output = new ByteArrayOutputStream();
-//            while ((bytesRead = inputStream.read(buffer)) != -1) {
-//                output.write(buffer, 0, bytesRead);
-//            }
-//            os.write(buffer);
-//            os.close();
+
 
             String inputLine;
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
@@ -258,21 +254,6 @@ class SocketHTTP {
             boolean flag=false;
             byte[] b = new byte[6000];
             try {
-//                while (!(inputLine = in.readLine()).equals(null)){
-////                    System.out.println(inputLine);
-//                    byteStream.append(inputLine);
-//                    System.out.println(inputLine);
-////                    if (flag) {
-////                        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-////                        outputStream.write( b );
-////                        outputStream.write( inputLine.getBytes(StandardCharsets.UTF_8) );
-////                        b = outputStream.toByteArray();
-////                    }
-//                    if(inputLine.equals("Connection: close")) {
-//                        byteStream.setLength(0);
-//                        flag=true;
-//                    }
-//                }
                 System.out.println("out");
                 DataInputStream in2 = new DataInputStream(socket.getInputStream());
                 OutputStream dos = new FileOutputStream("testtttt.png");
@@ -298,35 +279,10 @@ class SocketHTTP {
                     dos.write(buffer, y, count);
                     dos.flush();
                 }
-//                while ((count = in2.read(buffer)) != -1)
-//                {
-//                    System.out.println(Arrays.toString(buffer));
-//                    String str = new String(buffer, 0, count);
-//                    System.out.println("THIS:"+str);
-//                    int index = str.indexOf("Connection: close");
-//
-//                    if (str.contains("e\r\n\r\n")) {
-//                        System.out.println("THIS IS THE ONE:"+str);
-//
-//                        fl = true;
-//                    }
-//                    if (fl) {
-//                        dos.write(buffer, 0, count);
-//                        dos.flush();
-//                    }
-//                }
                 dos.close();
-
             }catch (NullPointerException nu) {
                 System.out.println();
             }
-//            OutputStream os = new FileOutputStream(new File("./gm.png"));
-//            os.write(b);
-//            os.close();
-//            BufferedWriter fileWriter = new BufferedWriter(new FileWriter(logoFileName));
-//            fileWriter.append(byteStream);
-//            fileWriter.flush();
-//            fileWriter.close();
         } catch (IOException e) {
             e.printStackTrace();
         }

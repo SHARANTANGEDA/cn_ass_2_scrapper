@@ -4,12 +4,12 @@
 /* f20170128@hyderabad.bits-pilani.ac.in Muppa Manish */
 /* f20170023@hyderabad.bits-pilani.ac.in Adapa Sai Vamsi */
 /* EndGroupMembers */
+
+/* Brief description of program...*/
+/* This code Download's HTML and Logo for google and HTML only for other sites */
+/* Code also recognizes 302 errors and redirects to correct url automatically */
+
 package com.sharan;
-
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-
 import javax.net.ssl.HandshakeCompletedEvent;
 import javax.net.ssl.HandshakeCompletedListener;
 import javax.net.ssl.SSLSocket;
@@ -20,6 +20,8 @@ import java.net.Socket;
 import java.security.Security;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 class SocketHTTPClient {
     public Socket socket;
@@ -127,8 +129,6 @@ class SocketHTTPClient {
 
             SSLSocket s = (SSLSocket) ((SSLSocketFactory) SSLSocketFactory.getDefault())
                     .createSocket(socket, hostName, 443, true);
-            s.setEnabledProtocols(new String[] {"TLSv1.3"});
-            s.setEnabledCipherSuites(new String[] {"TLS_AES_128_GCM_SHA256"});
             s.setUseClientMode(true);
             s.addHandshakeCompletedListener(
                     new HandshakeCompletedListener()
@@ -175,25 +175,51 @@ class SocketHTTPClient {
             } catch (UnsupportedEncodingException ignored) {
                 bytes = msg.toString().getBytes();
             }
-            System.out.println("Yo");
             socket.getOutputStream().write(bytes);
             socket.getOutputStream().flush();
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             String inputLine;
             StringBuilder htmlRes = new StringBuilder();
             try {
-                while (!(inputLine = in.readLine()).equals(null)) {
-//                    System.out.println(inputLine);
-                    if(inputLine.startsWith("<!doctype html>")  || inputLine.startsWith("<!DOCTYPE html>")) {
-                        htmlRes.setLength(0);
-//                        System.out.println("THIS:"+inputLine);
+                if(!(inputLine = in.readLine()).equals(null)) {
+                    if(!inputLine.contains("200 OK")) {
+                        String error = inputLine.substring(9,12);
+                        if(error.equals("302")) {
+                            String new_url = in.readLine();
+                            new_url = new_url.substring(new_url.indexOf("https://")+8);
+                            hostName = new_url;
+                            while (!(inputLine = in.readLine()).equals(null)) {
+                                if(inputLine.isEmpty()) {
+                                    socket.close();
+                                    return error;
+                                }
+                            }
+                        }else {
+                            System.out.println("RECEIVED A CONNECTION ERROR PLEASE RE-CHECK THE CODE");
+                            throw new NullPointerException(inputLine);
+                        }
                     }
-                    htmlRes.append(inputLine);
+                }
+                while (!(inputLine = in.readLine()).equals(null)) {
+                    if(inputLine.startsWith("<!doctype html")  || inputLine.startsWith("<!DOCTYPE html")) {
+                        htmlRes.setLength(0);
+                        htmlRes.append(inputLine);
+                    }else if(inputLine.contains("<!doctype html")  || inputLine.contains("<!DOCTYPE html")) {
+                        htmlRes.setLength(0);
+                        if (inputLine.contains("<!doctype html")) {
+                            int ind = inputLine.indexOf("<!doctype html");
+                            htmlRes.append(inputLine.substring(ind));
+                        }else {
+                            int ind = inputLine.indexOf("<!DOCTYPE html");
+                            htmlRes.append(inputLine.substring(ind));
+                        }
+                    }else {
+                        htmlRes.append(inputLine);
+                    }
                     if(inputLine.endsWith("</html>")) {
                         break;
                     }
                 }
-                System.out.println("out");
             }catch (NullPointerException nu) {
                 System.out.println();
             }
@@ -210,12 +236,21 @@ class SocketHTTPClient {
     }
 
     public void parseImage(String htmlCode) {
-        Document doc = Jsoup.parse(htmlCode);
-        Element logo = doc.getElementById("hplogo");
-//        String path = logo.attr("src");
-        String path;
+        Pattern pattern = Pattern.compile("<img .*? " +
+                "src=\".*.png\" " +
+                ".* id=\"hplogo\">");
+        Matcher matcher = pattern.matcher(htmlCode);
+        String path="";
         try {
-            path = logo.attr("src");
+            if (matcher.find()) {
+                path = matcher.group(0);
+            }
+            if (path.length()==0) {
+                throw new NullPointerException("Logo Not available");
+            }
+            int start_ind = path.indexOf("src=", 0);
+            int end_ind = path.indexOf("\"", start_ind+5);
+            path = path.substring(start_ind+5, end_ind);
         }catch (NullPointerException nu) {
             System.out.println("################ LOGO COULD NOT BE EXTRACTED AS SITE IS NOT GOOGLE ##################");
             return;
@@ -275,13 +310,17 @@ public class HttpProxyDownload {
         String password = args[4];
         String htmlFileName = args[5];
         String pngFileName = args[6];
-        System.out.println("Hello");
         System.setProperty("com.sun.net.ssl.checkRevocation", "true");
         Security.setProperty("ocsp.enable", "true");
         SocketHTTPClient socketHTTPClient = new SocketHTTPClient(hostName, proxyPort, proxyIp, userName, password,
                 htmlFileName, pngFileName);
         socketHTTPClient.initializeConnection();
         String htmlRes = socketHTTPClient.getHtml();
+        if(htmlRes.equals("302")) {
+            System.out.println("Captured 302 Error Redirecting to new url now....");
+            socketHTTPClient.initializeConnection();
+            htmlRes = socketHTTPClient.getHtml();
+        }
         socketHTTPClient.parseImage(htmlRes);
         socketHTTPClient.closeConnection();
     }
