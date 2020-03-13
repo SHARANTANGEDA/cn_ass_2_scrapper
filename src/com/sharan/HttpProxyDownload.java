@@ -9,7 +9,7 @@
 /* This code Download's HTML and Logo for google and HTML only for other sites */
 /* Code also recognizes 302 errors and redirects to correct url automatically */
 
-package com.sharan;
+//package com.sharan;
 import javax.net.ssl.HandshakeCompletedEvent;
 import javax.net.ssl.HandshakeCompletedListener;
 import javax.net.ssl.SSLSocket;
