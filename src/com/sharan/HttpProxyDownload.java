@@ -23,7 +23,7 @@ import java.util.Base64;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-class SocketHTTPClient {
+public class HttpProxyDownload {
     public Socket socket;
     public String hostName;
     public int proxyServerPort;
@@ -33,7 +33,30 @@ class SocketHTTPClient {
     public String htmlFileName;
     public String logoFileName;
     public String authEncoding;
-    public SocketHTTPClient(String hostName, int proxyServerPort, String proxyServer, String proxyCredUsername,
+    public static void main(String[] args) {
+        System.out.println(Arrays.toString(args));
+        String hostName = args[0];
+        String proxyIp = args[1];
+        int proxyPort = Integer.parseInt(args[2]);
+        String userName = args[3];
+        String password = args[4];
+        String htmlFileName = args[5];
+        String pngFileName = args[6];
+        System.setProperty("com.sun.net.ssl.checkRevocation", "true");
+        Security.setProperty("ocsp.enable", "true");
+        HttpProxyDownload proxyDownload = new HttpProxyDownload(hostName, proxyPort, proxyIp, userName, password,
+                htmlFileName, pngFileName);
+        proxyDownload.initializeConnection();
+        String htmlRes = proxyDownload.getHtml();
+        if(htmlRes.equals("302")) {
+            System.out.println("Captured 302 Error Redirecting to new url now....");
+            proxyDownload.initializeConnection();
+            htmlRes = proxyDownload.getHtml();
+        }
+        proxyDownload.parseImage(htmlRes);
+        proxyDownload.closeConnection();
+    }
+    public HttpProxyDownload(String hostName, int proxyServerPort, String proxyServer, String proxyCredUsername,
                             String proxyCredPassword, String htmlFileName, String logoFileName) {
         this.hostName = hostName;
         this.proxyServerPort = proxyServerPort;
@@ -297,32 +320,6 @@ class SocketHTTPClient {
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
-}
-
-public class HttpProxyDownload {
-    public static void main(String[] args) {
-        System.out.println(Arrays.toString(args));
-        String hostName = args[0];
-        String proxyIp = args[1];
-        int proxyPort = Integer.parseInt(args[2]);
-        String userName = args[3];
-        String password = args[4];
-        String htmlFileName = args[5];
-        String pngFileName = args[6];
-        System.setProperty("com.sun.net.ssl.checkRevocation", "true");
-        Security.setProperty("ocsp.enable", "true");
-        SocketHTTPClient socketHTTPClient = new SocketHTTPClient(hostName, proxyPort, proxyIp, userName, password,
-                htmlFileName, pngFileName);
-        socketHTTPClient.initializeConnection();
-        String htmlRes = socketHTTPClient.getHtml();
-        if(htmlRes.equals("302")) {
-            System.out.println("Captured 302 Error Redirecting to new url now....");
-            socketHTTPClient.initializeConnection();
-            htmlRes = socketHTTPClient.getHtml();
-        }
-        socketHTTPClient.parseImage(htmlRes);
-        socketHTTPClient.closeConnection();
     }
 
 }
